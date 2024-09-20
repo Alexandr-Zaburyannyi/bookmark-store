@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
+import BookmarkForm from './components/BookmarkForm';
+import Modal from './components/Modal';
 import './App.css';
 
 function App() {
@@ -11,10 +13,11 @@ function App() {
   return (
     <div className='container'>
       <h1>Welcome to your bookmark store!</h1>
-
-      <div className='row'></div>
-
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
+      <div className='form-container'>
+        <Modal>
+          <BookmarkForm />
+        </Modal>
+      </div>
     </div>
   );
 }

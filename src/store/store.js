@@ -2,7 +2,7 @@
 
 import create from 'zustand';
 
-export const useStore = create((set) => ({
+export const useBookmarkStore = create((set) => ({
   bookmarks: [],
   addBookmark: (bookmark) =>
     set((state) => ({ bookmarks: [...state.bookmarks, bookmark] })),
@@ -12,4 +12,9 @@ export const useStore = create((set) => ({
         item.id !== bookmarkId;
       }),
     })),
+}));
+
+export const useModalStateStore = create((set) => ({
+  modalIsOpen: false,
+  toggleModal: () => set((state) => (state.modalIsOpen = !state.modalIsOpen)),
 }));
