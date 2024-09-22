@@ -1,25 +1,39 @@
 /** @format */
-
-import { useState } from 'react';
-import { invoke } from '@tauri-apps/api/tauri';
+import { useDisclosure } from '@mantine/hooks';
+import { Button, Flex, Modal, Title } from '@mantine/core';
 import BookmarkForm from './components/BookmarkForm';
-import Modal from './components/Modal';
-import './App.css';
+import useBookmarkStore from './store/store.js';
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState('');
-  const [name, setName] = useState('');
-
+const App = () => {
+  const [opened, { open, close }] = useDisclosure(false);
+  const bookmarks = useBookmarkStore((state) => state);
+  console.log(bookmarks);
   return (
-    <div className='container'>
-      <h1>Welcome to your bookmark store!</h1>
-      <div className='form-container'>
-        <Modal>
-          <BookmarkForm />
-        </Modal>
-      </div>
-    </div>
+    <>
+      <Modal
+        title='Add bookmark'
+        opened={opened}
+        onClose={close}
+      >
+        <BookmarkForm />
+      </Modal>
+      <Flex
+        mt='md'
+        w='100%'
+        justify='center'
+        direction='column'
+        align='center'
+      >
+        <Title
+          order={2}
+          m='auto'
+        >
+          Welcome to your bookmark store!
+        </Title>
+        <Button onClick={open}>Add bookmark</Button>
+      </Flex>
+    </>
   );
-}
+};
 
 export default App;

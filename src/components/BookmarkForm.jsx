@@ -1,33 +1,32 @@
 /** @format */
-import './BookmarkForm.css';
+
+import { Button, Flex, Textarea, TextInput } from '@mantine/core';
 
 const BookmarkForm = () => {
   return (
-    <form className='form'>
-      <label>Enter bookmark name</label>
-      <input
-        type='text'
-        placeholder='Bookamrk name'
-        className='input'
-      />
-      <label>Paste bookmark link</label>
-      <input
-        type='text'
-        placeholder='Bookmmark link'
-        className='input'
-      />
-      <label>Enter bookmark description</label>
-      <input
-        type='text'
-        placeholder='Bookmark description'
-        className='input'
-      />
-      <button
-        type='submit'
-        className='submit-button'
+    <form>
+      <Flex
+        m='auto'
+        w='90%'
+        direction='column'
       >
-        Submit
-      </button>
+        <TextInput
+          my='sm'
+          placeholder='Bookamrk name'
+          label='Enter bookmark name'
+        />
+        <TextInput
+          my='sm'
+          placeholder='Bookmmark link'
+          label='Paste bookmark link'
+        />
+        <Textarea
+          my='sm'
+          placeholder='Bookmark description'
+          label='Enter bookmark description'
+        />
+        <Button type='submit'>Submit</Button>
+      </Flex>
     </form>
   );
 };
