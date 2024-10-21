@@ -1,8 +1,14 @@
 /** @format */
-
+import { memo } from 'react';
+import React, { useMemo } from 'react';
 import { Button, Flex, Textarea, TextInput } from '@mantine/core';
 
 const BookmarkForm = () => {
+  const memoizedButton = useMemo(
+    () => <Button type='submit'>Submit</Button>,
+    []
+  );
+
   return (
     <form>
       <Flex
@@ -25,9 +31,10 @@ const BookmarkForm = () => {
           placeholder='Bookmark description'
           label='Enter bookmark description'
         />
-        <Button type='submit'>Submit</Button>
+        {memoizedButton}
       </Flex>
     </form>
   );
 };
-export default BookmarkForm;
+
+export default memo(BookmarkForm);

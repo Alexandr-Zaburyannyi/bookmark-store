@@ -8,6 +8,7 @@ const useBookmarkStore = create((set) => ({
 
   addBookmark: (bookmark) =>
     set((state) => ({ bookmarks: [...state.bookmarks, bookmark] })),
+
   removeBookmark: (bookmarkId) =>
     set((state) => ({
       bookmarks: state.bookmarks.filter((item) => item.id !== bookmarkId),

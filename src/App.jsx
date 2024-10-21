@@ -3,12 +3,39 @@
 import { useDisclosure } from '@mantine/hooks';
 import { Button, Flex, Modal, Title } from '@mantine/core';
 import BookmarkForm from './components/BookmarkForm';
-import { useGetBookmarks } from './hooks/useGetBookmarks.js';
+import useBookmarkStore from './store/store.js';
+import { setBookmarks } from './services/bookmarkServices.js';
+import { useLayoutEffect, useMemo } from 'react';
+import BookmarkList from './components/Bookmark.jsx';
 
 const App = () => {
   const [opened, { open, close }] = useDisclosure(false);
 
-  const bookmarks = useGetBookmarks();
+  const setBookmarksStore = useBookmarkStore((state) => state.setBookmarks);
+
+  useLayoutEffect(() => {
+    setBookmarks(setBookmarksStore);
+  }, []);
+
+  const memoizedButton = useMemo(
+    () => <Button onClick={open}>Add bookmark</Button>,
+    []
+  );
+
+  const memoizedFlex = useMemo(
+    () => (
+      <Flex
+        mt='md'
+        w='100%'
+        justify='space-evenly'
+        align='center'
+      >
+        <Title order={2}>Welcome to your bookmark store!</Title>
+        {memoizedButton}
+      </Flex>
+    ),
+    []
+  );
 
   return (
     <>
@@ -19,21 +46,8 @@ const App = () => {
       >
         <BookmarkForm />
       </Modal>
-      <Flex
-        mt='md'
-        w='100%'
-        justify='center'
-        direction='column'
-        align='center'
-      >
-        <Title
-          order={2}
-          m='auto'
-        >
-          Welcome to your bookmark store!
-        </Title>
-        <Button onClick={open}>Add bookmark</Button>
-      </Flex>
+      {memoizedFlex}
+      <BookmarkList />
     </>
   );
 };
