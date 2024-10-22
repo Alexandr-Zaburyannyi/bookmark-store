@@ -29,7 +29,6 @@ const BookmarkList = () => {
     },
     [pagination]
   );
-
   const memoizedFlex = useMemo(
     () => (
       <Flex
@@ -47,7 +46,7 @@ const BookmarkList = () => {
           {currentBookmarks.map((bookmark) => (
             <Card
               my='xs'
-              key={bookmark[0]}
+              key={bookmark.id}
               shadow='sm'
               padding='lg'
               radius='md'
@@ -56,7 +55,7 @@ const BookmarkList = () => {
                 flexShrink: 0,
               }}
             >
-              {bookmark[1]}
+              {bookmark.name}
             </Card>
           ))}
         </Stack>
