@@ -1,6 +1,14 @@
 /** @format */
 
-import { Card, Flex, Pagination, Stack } from '@mantine/core';
+import {
+  Card,
+  Flex,
+  Pagination,
+  Stack,
+  Title,
+  Text,
+  UnstyledButton,
+} from '@mantine/core';
 import useBookmarkStore from '../store/store';
 import { usePagination } from '@mantine/hooks';
 import { memo, useCallback, useMemo } from 'react'; // Import useMemo
@@ -44,19 +52,27 @@ const BookmarkList = () => {
           }}
         >
           {currentBookmarks.map((bookmark) => (
-            <Card
-              my='xs'
-              key={bookmark.id}
-              shadow='sm'
-              padding='lg'
-              radius='md'
-              withBorder
-              sx={{
-                flexShrink: 0,
-              }}
-            >
-              {bookmark.name}
-            </Card>
+            <UnstyledButton>
+              <Card
+                my='xs'
+                key={bookmark.id}
+                shadow='sm'
+                padding='lg'
+                radius='md'
+                withBorder
+                sx={{
+                  flexShrink: 0,
+                }}
+                display='flex'
+              >
+                <Title
+                  order={4}
+                  tt='capitalize'
+                >
+                  {bookmark.name}
+                </Title>
+              </Card>
+            </UnstyledButton>
           ))}
         </Stack>
         <Pagination
