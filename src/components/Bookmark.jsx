@@ -1,35 +1,26 @@
 /** @format */
 
-import {
-  Card,
-  Flex,
-  Pagination,
-  Stack,
-  Title,
-  Text,
-  UnstyledButton,
-} from '@mantine/core';
+import { Flex, Pagination, Stack } from '@mantine/core';
 import useBookmarkStore from '../store/store';
-import { usePagination } from '@mantine/hooks';
+import { useMediaQuery } from '@mantine/hooks';
 import { memo, useCallback, useMemo } from 'react'; // Import useMemo
+import usePaginate from '../hooks/usePaginate';
+import BookmarksList from './BookmarksList';
 
-const BookmarkList = () => {
+const BookmarkPage = () => {
+  const isSmallWindow = useMediaQuery('(max-height: 600px)');
+  const isBigWindow = useMediaQuery('(max-height: 900px)');
+
   const bookmarks = useBookmarkStore((state) => state.bookmarks);
 
   const totalItems = bookmarks.length;
-  const itemsPerPage = 5;
+  const itemsPerPage = isSmallWindow ? 4 : isBigWindow ? 5 : 7;
 
-  const pagination = usePagination({
-    total: Math.ceil(totalItems / itemsPerPage),
-    initialPage: 1,
-  });
-
-  const start = (pagination.active - 1) * itemsPerPage;
-  const end = start + itemsPerPage;
-
-  const currentBookmarks = useMemo(() => {
-    return bookmarks.slice(start, end);
-  }, [bookmarks, start, end]);
+  const { pagination, currentBookmarks, totalPages } = usePaginate(
+    totalItems,
+    itemsPerPage,
+    bookmarks
+  );
 
   const handlePageChange = useCallback(
     (page) => {
@@ -40,6 +31,7 @@ const BookmarkList = () => {
   const memoizedFlex = useMemo(
     () => (
       <Flex
+        h='100vh'
         direction='column'
         p='md'
       >
@@ -51,32 +43,10 @@ const BookmarkList = () => {
             flexShrink: 0,
           }}
         >
-          {currentBookmarks.map((bookmark) => (
-            <UnstyledButton>
-              <Card
-                my='xs'
-                key={bookmark.id}
-                shadow='sm'
-                padding='lg'
-                radius='md'
-                withBorder
-                sx={{
-                  flexShrink: 0,
-                }}
-                display='flex'
-              >
-                <Title
-                  order={4}
-                  tt='capitalize'
-                >
-                  {bookmark.name}
-                </Title>
-              </Card>
-            </UnstyledButton>
-          ))}
+          <BookmarksList bookmarks={currentBookmarks} />
         </Stack>
         <Pagination
-          total={Math.ceil(totalItems / itemsPerPage)}
+          total={totalPages}
           page={pagination.active}
           onChange={handlePageChange}
         />
@@ -88,4 +58,4 @@ const BookmarkList = () => {
   return memoizedFlex;
 };
 
-export default memo(BookmarkList);
+export default memo(BookmarkPage);

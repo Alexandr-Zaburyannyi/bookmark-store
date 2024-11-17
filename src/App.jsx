@@ -6,7 +6,7 @@ import BookmarkForm from './components/BookmarkForm';
 import useBookmarkStore from './store/store.js';
 import { setBookmarks } from './services/bookmarkServices.js';
 import { useLayoutEffect, useMemo } from 'react';
-import BookmarkList from './components/Bookmark.jsx';
+import BookmarkPage from './components/Bookmark.jsx';
 
 const App = () => {
   const [opened, { open, close }] = useDisclosure(false);
@@ -39,15 +39,20 @@ const App = () => {
 
   return (
     <>
-      <Modal
-        title='Add bookmark'
-        opened={opened}
-        onClose={close}
-      >
-        <BookmarkForm />
-      </Modal>
+      {useMemo(
+        () => (
+          <Modal
+            title='Add bookmark'
+            opened={opened}
+            onClose={close}
+          >
+            <BookmarkForm />
+          </Modal>
+        ),
+        [opened, close]
+      )}
       {memoizedFlex}
-      <BookmarkList />
+      <BookmarkPage />
     </>
   );
 };
