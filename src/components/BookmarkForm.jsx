@@ -1,11 +1,20 @@
-/** @format */
-import { memo } from 'react';
-import React, { useMemo } from 'react';
+import React, { useMemo, memo } from 'react';
 import { Button, Flex, Textarea, TextInput } from '@mantine/core';
 
 const BookmarkForm = () => {
+  const handleSubmit = (e) => {
+    e.preventDefault();
+  };
+  // use react hook form for this form & possibly special form component
   const memoizedButton = useMemo(
-    () => <Button type='submit'>Submit</Button>,
+    () => (
+      <Button
+        type='submit'
+        onClick={handleSubmit}
+      >
+        Submit
+      </Button>
+    ),
     []
   );
 

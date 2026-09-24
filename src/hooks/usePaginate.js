@@ -1,5 +1,3 @@
-/** @format */
-
 import { usePagination } from '@mantine/hooks';
 import { useMemo } from 'react';
 const usePaginate = (totalItems, itemsPerPage, bookmarks) => {

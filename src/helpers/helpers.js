@@ -1,10 +1,87 @@
-/** @format */
+export const groupSources = (sources) => {
+  const bySourceId = new Map();
 
-export const refactorBookmarks = (bookmarks) => {
-  return bookmarks.map((bookmark) => ({
-    id: bookmark.at(0),
-    name: bookmark.at(1),
-    link: bookmark.at(2),
-    description: bookmark.at(3),
-  }));
+  for (const source of sources) {
+    const existing = bySourceId.get(source.sourceId);
+    if (existing) {
+      existing.present = existing.present || source.present;
+      if (!existing.folders.includes(source.folderPath)) {
+        existing.folders.push(source.folderPath);
+      }
+    } else {
+      bySourceId.set(source.sourceId, {
+        sourceId: source.sourceId,
+        browser: source.browser,
+        profile: source.profile,
+        present: source.present,
+        folders: [source.folderPath],
+      });
+    }
+  }
+
+  const grouped = Array.from(bySourceId.values());
+
+  const profilesPerBrowser = new Map();
+  for (const source of grouped) {
+    profilesPerBrowser.set(
+      source.browser,
+      (profilesPerBrowser.get(source.browser) ?? 0) + 1
+    );
+  }
+
+  return grouped.map((source) => {
+    const showProfile =
+      source.profile !== 'Default' &&
+      profilesPerBrowser.get(source.browser) > 1;
+
+    return {
+      sourceId: source.sourceId,
+      label: showProfile
+        ? `${source.browser} · ${source.profile}`
+        : source.browser,
+      present: source.present,
+      folders: source.folders,
+    };
+  });
+};
+
+export const bookmarkStatus = (bookmark) => {
+  const sources = bookmark.sources ?? [];
+  if (sources.length === 0) {
+    return 'manual';
+  }
+  return sources.some((source) => source.present) ? 'synced' : 'removed';
+};
+
+export const buildFolderTree = (folders) => {
+  const nodes = new Map(
+    folders.map((folder) => [folder.id, { ...folder, children: [] }])
+  );
+  const roots = [];
+
+  for (const node of nodes.values()) {
+    const parent = node.parentId == null ? null : nodes.get(node.parentId);
+    (parent ? parent.children : roots).push(node);
+  }
+
+  const sortByPosition = (list) => {
+    list.sort((a, b) => a.position - b.position || a.id - b.id);
+    list.forEach((node) => sortByPosition(node.children));
+  };
+  sortByPosition(roots);
+
+  return roots;
+};
+
+export const folderOptions = (folders) => {
+  const options = [];
+  const walk = (nodes, prefix) => {
+    for (const node of nodes) {
+      const path = prefix ? `${prefix} / ${node.name}` : node.name;
+      options.push({ value: String(node.id), label: path });
+      walk(node.children, path);
+    }
+  };
+  walk(buildFolderTree(folders), '');
+  return options;
 };

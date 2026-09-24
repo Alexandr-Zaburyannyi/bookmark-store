@@ -1,26 +1,87 @@
-/** @format */
-
-import { Flex, Pagination, Stack } from '@mantine/core';
+import { Flex, Pagination, SegmentedControl, SimpleGrid } from '@mantine/core';
+import { memo, useCallback, useEffect, useMemo } from 'react';
+import { useViewportSize } from '@mantine/hooks';
 import useBookmarkStore from '../store/store';
-import { useMediaQuery } from '@mantine/hooks';
-import { memo, useCallback, useMemo } from 'react'; // Import useMemo
 import usePaginate from '../hooks/usePaginate';
+import { bookmarkStatus } from '../helpers/helpers';
 import BookmarksList from './BookmarksList';
 
+const STATUS_FILTERS = [
+  { label: 'All', status: 'all' },
+  { label: 'In browsers', status: 'synced' },
+  { label: 'Removed', status: 'removed' },
+  { label: 'Added here', status: 'manual' },
+];
+
+const COLUMN_WIDTH = 280;
+const MAX_COLUMNS = 4;
+const ROW_PITCH = 150;
+const NAVBAR_WIDTH = 240;
+const CHROME_HEIGHT = 250;
+
 const BookmarkPage = () => {
-  const isSmallWindow = useMediaQuery('(max-height: 600px)');
-  const isBigWindow = useMediaQuery('(max-height: 900px)');
+  const { height: viewportHeight, width: viewportWidth } = useViewportSize();
 
   const bookmarks = useBookmarkStore((state) => state.bookmarks);
+  const selectedFolder = useBookmarkStore((state) => state.selectedFolder);
+  const statusFilter = useBookmarkStore((state) => state.statusFilter);
+  const setStatusFilter = useBookmarkStore((state) => state.setStatusFilter);
 
-  const totalItems = bookmarks.length;
-  const itemsPerPage = isSmallWindow ? 4 : isBigWindow ? 5 : 7;
+  const folderBookmarks = useMemo(() => {
+    if (selectedFolder === 'all') {
+      return bookmarks;
+    }
+    if (selectedFolder === 'unfiled') {
+      return bookmarks.filter((bookmark) => bookmark.folderId == null);
+    }
+    return bookmarks.filter((bookmark) => bookmark.folderId === selectedFolder);
+  }, [bookmarks, selectedFolder]);
+
+  const counts = useMemo(() => {
+    const counts = {
+      all: folderBookmarks.length,
+      synced: 0,
+      removed: 0,
+      manual: 0,
+    };
+    for (const bookmark of folderBookmarks) {
+      counts[bookmarkStatus(bookmark)] += 1;
+    }
+    return counts;
+  }, [folderBookmarks]);
+
+  const filteredBookmarks = useMemo(() => {
+    if (statusFilter === 'all') {
+      return folderBookmarks;
+    }
+    return folderBookmarks.filter(
+      (bookmark) => bookmarkStatus(bookmark) === statusFilter
+    );
+  }, [folderBookmarks, statusFilter]);
+
+  const totalItems = filteredBookmarks.length;
+  const columns = Math.min(
+    MAX_COLUMNS,
+    Math.max(1, Math.floor((viewportWidth - NAVBAR_WIDTH) / COLUMN_WIDTH))
+  );
+  const rows = Math.max(
+    1,
+    Math.floor((viewportHeight - CHROME_HEIGHT) / ROW_PITCH)
+  );
+  const itemsPerPage = columns * rows;
 
   const { pagination, currentBookmarks, totalPages } = usePaginate(
     totalItems,
     itemsPerPage,
-    bookmarks
+    filteredBookmarks
   );
+
+  useEffect(() => {
+    if (totalPages > 0) {
+      pagination.setPage(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, selectedFolder]);
 
   const handlePageChange = useCallback(
     (page) => {
@@ -28,31 +89,64 @@ const BookmarkPage = () => {
     },
     [pagination]
   );
+
+  const segmentedData = useMemo(
+    () =>
+      STATUS_FILTERS.map(({ label, status }) => ({
+        value: status,
+        label: `${label} (${counts[status]})`,
+      })),
+    [counts]
+  );
+
   const memoizedFlex = useMemo(
     () => (
       <Flex
-        h='100vh'
         direction='column'
         p='md'
+        style={{ flex: 1, minHeight: 0 }}
       >
-        <Stack
-          h='80vh'
+        <SegmentedControl
           mb='sm'
-          sx={{
-            flexGrow: 0,
-            flexShrink: 0,
+          value={statusFilter}
+          onChange={setStatusFilter}
+          data={segmentedData}
+        />
+
+        <div
+          style={{
+            flexGrow: 1,
+            flexShrink: 1,
+            minHeight: 0,
+            overflowY: 'auto',
           }}
         >
-          <BookmarksList bookmarks={currentBookmarks} />
-        </Stack>
+          <SimpleGrid
+            cols={columns}
+            spacing='md'
+            mb='sm'
+          >
+            <BookmarksList bookmarks={currentBookmarks} />
+          </SimpleGrid>
+        </div>
+
         <Pagination
           total={totalPages}
-          page={pagination.active}
+          value={pagination.active}
           onChange={handlePageChange}
         />
       </Flex>
     ),
-    [currentBookmarks, pagination.active]
+    [
+      currentBookmarks,
+      columns,
+      pagination.active,
+      totalPages,
+      statusFilter,
+      segmentedData,
+      setStatusFilter,
+      handlePageChange,
+    ]
   );
 
   return memoizedFlex;
