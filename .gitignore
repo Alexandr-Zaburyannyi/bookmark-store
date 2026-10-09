@@ -13,8 +13,7 @@ dist-ssr
 *.local
 
 # Editor directories and files
-.vscode/*
-!.vscode/extensions.json
+.vscode/
 .idea
 .DS_Store
 *.suo
@@ -25,3 +24,8 @@ dist-ssr
 
 # Million Lint
 .million
+
+# Lockfile, Claude Code guidance and planning docs
+pnpm-lock.yaml
+CLAUDE.md
+plans/
