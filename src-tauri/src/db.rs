@@ -211,7 +211,6 @@ pub fn add_or_restore_bookmark(
                  WHERE id = ?6;",
                 params![name, link, description, folder_id, now, id],
             )?;
-            // Browser copies whose delete was not yet written are no longer pending.
             tx.execute(
                 "UPDATE bookmark_sources SET pending_delete = 0 WHERE bookmark_id = ?1;",
                 params![id],

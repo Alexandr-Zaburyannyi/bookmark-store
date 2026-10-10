@@ -55,7 +55,6 @@ export const bookmarkStatus = (bookmark) => {
 
 const SCHEMELESS_SCHEMES = /^(mailto|javascript|data|about):/i;
 
-// Returns the link to save, or null when the input can't be a link.
 export const normalizeLink = (raw) => {
   const value = raw.trim();
   if (!value) {

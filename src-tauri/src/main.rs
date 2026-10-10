@@ -410,7 +410,6 @@ fn set_folder_targets(folder_id: i64, source_ids: Vec<i64>) -> Result<(), String
             continue;
         }
         if external_id.is_none() {
-            // Never pushed, so there is nothing to remove from the browser.
             tx.execute(
                 "DELETE FROM folder_targets WHERE id = ?1;",
                 params![target_id],
@@ -453,7 +452,6 @@ fn delete_folder(folder_id: i64) -> Result<(), String> {
         )
         .map_err(|e| e.to_string())?;
 
-    // A target that was never pushed has nothing to remove from the browser.
     conn.execute(
         "DELETE FROM folder_targets WHERE folder_id = ?1 AND external_id IS NULL;",
         params![folder_id],
