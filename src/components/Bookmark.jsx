@@ -1,10 +1,19 @@
-import { Flex, Pagination, SegmentedControl, SimpleGrid } from '@mantine/core';
+import {
+  Flex,
+  Group,
+  Pagination,
+  SegmentedControl,
+  SimpleGrid,
+  Text,
+} from '@mantine/core';
 import { memo, useCallback, useEffect, useMemo } from 'react';
 import { useViewportSize } from '@mantine/hooks';
 import useBookmarkStore from '../store/store';
 import usePaginate from '../hooks/usePaginate';
+import useBookmarkSearch from '../hooks/useBookmarkSearch';
 import { bookmarkStatus } from '../helpers/helpers';
 import BookmarksList from './BookmarksList';
+import SearchInput from './SearchInput';
 
 const STATUS_FILTERS = [
   { label: 'All', status: 'all' },
@@ -26,16 +35,23 @@ const BookmarkPage = () => {
   const selectedFolder = useBookmarkStore((state) => state.selectedFolder);
   const statusFilter = useBookmarkStore((state) => state.statusFilter);
   const setStatusFilter = useBookmarkStore((state) => state.setStatusFilter);
+  const searchQuery = useBookmarkStore((state) => state.searchQuery);
+
+  // Search runs first, so counts, folder/status filters and paging all see its results.
+  // Fuse returns results best match first, and the filters below keep that order.
+  const searchedBookmarks = useBookmarkSearch(bookmarks, searchQuery);
 
   const folderBookmarks = useMemo(() => {
     if (selectedFolder === 'all') {
-      return bookmarks;
+      return searchedBookmarks;
     }
     if (selectedFolder === 'unfiled') {
-      return bookmarks.filter((bookmark) => bookmark.folderId == null);
+      return searchedBookmarks.filter((bookmark) => bookmark.folderId == null);
     }
-    return bookmarks.filter((bookmark) => bookmark.folderId === selectedFolder);
-  }, [bookmarks, selectedFolder]);
+    return searchedBookmarks.filter(
+      (bookmark) => bookmark.folderId === selectedFolder
+    );
+  }, [searchedBookmarks, selectedFolder]);
 
   const counts = useMemo(() => {
     const counts = {
@@ -81,7 +97,7 @@ const BookmarkPage = () => {
       pagination.setPage(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, selectedFolder]);
+  }, [statusFilter, selectedFolder, searchQuery]);
 
   const handlePageChange = useCallback(
     (page) => {
@@ -106,12 +122,18 @@ const BookmarkPage = () => {
         p='md'
         style={{ flex: 1, minHeight: 0 }}
       >
-        <SegmentedControl
+        <Group
+          justify='space-between'
           mb='sm'
-          value={statusFilter}
-          onChange={setStatusFilter}
-          data={segmentedData}
-        />
+          wrap='wrap'
+        >
+          <SearchInput />
+          <SegmentedControl
+            value={statusFilter}
+            onChange={setStatusFilter}
+            data={segmentedData}
+          />
+        </Group>
 
         <div
           style={{
@@ -121,13 +143,25 @@ const BookmarkPage = () => {
             overflowY: 'auto',
           }}
         >
-          <SimpleGrid
-            cols={columns}
-            spacing='md'
-            mb='sm'
-          >
-            <BookmarksList bookmarks={currentBookmarks} />
-          </SimpleGrid>
+          {totalItems === 0 ? (
+            <Text
+              c='dimmed'
+              ta='center'
+              mt='xl'
+            >
+              {searchQuery.trim()
+                ? `No bookmarks match “${searchQuery.trim()}”`
+                : 'No bookmarks here yet'}
+            </Text>
+          ) : (
+            <SimpleGrid
+              cols={columns}
+              spacing='md'
+              mb='sm'
+            >
+              <BookmarksList bookmarks={currentBookmarks} />
+            </SimpleGrid>
+          )}
         </div>
 
         <Pagination
@@ -142,7 +176,9 @@ const BookmarkPage = () => {
       columns,
       pagination.active,
       totalPages,
+      totalItems,
       statusFilter,
+      searchQuery,
       segmentedData,
       setStatusFilter,
       handlePageChange,

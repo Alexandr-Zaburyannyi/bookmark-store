@@ -76,7 +76,7 @@ const App = () => {
             onClose={close}
             radius={'md'}
           >
-            <BookmarkForm />
+            <BookmarkForm onDone={close} />
           </Modal>
         ),
         [opened, close]

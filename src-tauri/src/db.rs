@@ -1,4 +1,4 @@
-use rusqlite::{Connection, Result};
+use rusqlite::{params, Connection, OptionalExtension, Result};
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
@@ -137,9 +137,206 @@ fn migration_003_write_back(tx: &rusqlite::Transaction) -> Result<()> {
     )
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum AddOutcome {
+    Added,
+    Restored,
+    Exists,
+}
+
+impl AddOutcome {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AddOutcome::Added => "added",
+            AddOutcome::Restored => "restored",
+            AddOutcome::Exists => "exists",
+        }
+    }
+}
+
+fn touch_folder_updated_at(
+    tx: &rusqlite::Transaction,
+    folder_id: Option<i64>,
+    now: i64,
+) -> Result<()> {
+    if let Some(id) = folder_id {
+        tx.execute(
+            "UPDATE folders SET updated_at = ?1 WHERE id = ?2;",
+            params![now, id],
+        )?;
+    }
+    Ok(())
+}
+
+/// Adds a bookmark unless its URL is already saved. A link that was deleted in the app is
+/// restored in place, so sync keeps attaching browser copies to the same row.
+/// Returns (id, name, outcome).
+pub fn add_or_restore_bookmark(
+    conn: &mut Connection,
+    name: &str,
+    link: &str,
+    description: &str,
+    folder_id: Option<i64>,
+    now: i64,
+) -> Result<(i64, String, AddOutcome)> {
+    let key = crate::url_key::url_key(link);
+    let tx = conn.transaction()?;
+
+    let live: Option<(i64, String)> = tx
+        .query_row(
+            "SELECT id, name FROM bookmarks WHERE url_key = ?1 AND deleted_at IS NULL ORDER BY id LIMIT 1;",
+            params![key],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()?;
+    if let Some((id, existing_name)) = live {
+        return Ok((id, existing_name, AddOutcome::Exists));
+    }
+
+    // Same lookup as sync (sync/mod.rs), so soft-deleted rows are found here too.
+    let deleted: Option<i64> = tx
+        .query_row(
+            "SELECT id FROM bookmarks WHERE url_key = ?1 ORDER BY id LIMIT 1;",
+            params![key],
+            |row| row.get(0),
+        )
+        .optional()?;
+
+    let (id, outcome) = match deleted {
+        Some(id) => {
+            tx.execute(
+                "UPDATE bookmarks
+                 SET deleted_at = NULL, name = ?1, link = ?2, description = ?3,
+                     folder_id = ?4, created_at = ?5, updated_at = ?5
+                 WHERE id = ?6;",
+                params![name, link, description, folder_id, now, id],
+            )?;
+            // Browser copies whose delete was not yet written are no longer pending.
+            tx.execute(
+                "UPDATE bookmark_sources SET pending_delete = 0 WHERE bookmark_id = ?1;",
+                params![id],
+            )?;
+            (id, AddOutcome::Restored)
+        }
+        None => {
+            tx.execute(
+                "INSERT INTO bookmarks (name, link, description, folder_id, url_key, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6);",
+                params![name, link, description, folder_id, key, now],
+            )?;
+            (tx.last_insert_rowid(), AddOutcome::Added)
+        }
+    };
+
+    touch_folder_updated_at(&tx, folder_id, now)?;
+    tx.commit()?;
+    Ok((id, name.to_string(), outcome))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn migrated_database() -> Connection {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", true).unwrap();
+        initialize_db(&conn).unwrap();
+        migrate(&mut conn).unwrap();
+        conn
+    }
+
+    #[test]
+    fn adding_a_new_link_stores_its_key_and_folder() {
+        let mut conn = migrated_database();
+        conn.execute(
+            "INSERT INTO folders (id, name, created_at, updated_at) VALUES (1, 'Work', 0, 0)",
+            [],
+        )
+        .unwrap();
+
+        let (id, name, outcome) =
+            add_or_restore_bookmark(&mut conn, "Example", "https://a.com", "", Some(1), 100)
+                .unwrap();
+        assert_eq!(outcome, AddOutcome::Added);
+        assert_eq!(name, "Example");
+
+        let (url_key, folder_id): (String, Option<i64>) = conn
+            .query_row(
+                "SELECT url_key, folder_id FROM bookmarks WHERE id = ?1",
+                params![id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(url_key, "https://a.com/");
+        assert_eq!(folder_id, Some(1));
+    }
+
+    #[test]
+    fn adding_a_link_that_differs_only_by_case_reports_the_existing_bookmark() {
+        let mut conn = migrated_database();
+
+        let (first_id, _, _) =
+            add_or_restore_bookmark(&mut conn, "First", "https://a.com", "", None, 100).unwrap();
+        let (second_id, name, outcome) =
+            add_or_restore_bookmark(&mut conn, "Second", "https://A.com", "", None, 200).unwrap();
+
+        assert_eq!(outcome, AddOutcome::Exists);
+        assert_eq!(second_id, first_id);
+        assert_eq!(name, "First");
+
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM bookmarks", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn adding_a_link_deleted_in_the_app_restores_it_and_cancels_pending_deletes() {
+        let mut conn = migrated_database();
+
+        let (id, _, _) =
+            add_or_restore_bookmark(&mut conn, "Old", "https://a.com", "", None, 100).unwrap();
+        conn.execute(
+            "UPDATE bookmarks SET deleted_at = 150 WHERE id = ?1",
+            params![id],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO sources (id, path, family, browser, profile) VALUES (1, '/p', 'chromium', 'Brave', 'Default')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO bookmark_sources (bookmark_id, source_id, external_id, title, folder_path, present, last_seen_at, pending_delete)
+             VALUES (?1, 1, 'g-1', 'Old', '', 1, 0, 1)",
+            params![id],
+        )
+        .unwrap();
+
+        let (restored_id, _, outcome) =
+            add_or_restore_bookmark(&mut conn, "New name", "https://a.com", "d", None, 300)
+                .unwrap();
+        assert_eq!(outcome, AddOutcome::Restored);
+        assert_eq!(restored_id, id);
+
+        let (deleted_at, name, pending): (Option<i64>, String, i64) = conn
+            .query_row(
+                "SELECT b.deleted_at, b.name, bs.pending_delete
+                 FROM bookmarks b JOIN bookmark_sources bs ON bs.bookmark_id = b.id
+                 WHERE b.id = ?1",
+                params![id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(deleted_at, None);
+        assert_eq!(name, "New name");
+        assert_eq!(pending, 0);
+
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM bookmarks", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+    }
 
     #[test]
     fn deleting_parent_folder_cascades_and_unfiles_bookmarks() {

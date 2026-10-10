@@ -53,6 +53,35 @@ export const bookmarkStatus = (bookmark) => {
   return sources.some((source) => source.present) ? 'synced' : 'removed';
 };
 
+const SCHEMELESS_SCHEMES = /^(mailto|javascript|data|about):/i;
+
+// Returns the link to save, or null when the input can't be a link.
+export const normalizeLink = (raw) => {
+  const value = raw.trim();
+  if (!value) {
+    return null;
+  }
+
+  const hasScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(value);
+  const candidate =
+    hasScheme || SCHEMELESS_SCHEMES.test(value) ? value : `https://${value}`;
+
+  try {
+    new URL(candidate);
+    return candidate;
+  } catch {
+    return null;
+  }
+};
+
+export const displayHost = (link) => {
+  try {
+    return new URL(link).hostname.replace(/^www\./, '') || link;
+  } catch {
+    return link;
+  }
+};
+
 export const buildFolderTree = (folders) => {
   const nodes = new Map(
     folders.map((folder) => [folder.id, { ...folder, children: [] }])

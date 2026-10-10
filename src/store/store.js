@@ -4,9 +4,6 @@ const useBookmarkStore = create((set) => ({
   bookmarks: [],
   setBookmarks: (bookmarks) => set(() => ({ bookmarks })),
 
-  addBookmark: (bookmark) =>
-    set((state) => ({ bookmarks: [...state.bookmarks, bookmark] })),
-
   removeBookmark: (bookmarkId) =>
     set((state) => ({
       bookmarks: state.bookmarks.filter((item) => item.id !== bookmarkId),
@@ -29,6 +26,9 @@ const useBookmarkStore = create((set) => ({
 
   statusFilter: 'all',
   setStatusFilter: (statusFilter) => set(() => ({ statusFilter })),
+
+  searchQuery: '',
+  setSearchQuery: (searchQuery) => set(() => ({ searchQuery })),
 }));
 
 export default useBookmarkStore;
