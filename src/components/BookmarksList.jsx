@@ -17,6 +17,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { cardMotionStyle } from '../config/config';
 import {
   bookmarkStatus,
+  displayHost,
   folderOptions,
   groupSources,
 } from '../helpers/helpers';
@@ -155,6 +156,13 @@ const BookmarksList = ({ bookmarks }) => {
                   </Menu.Dropdown>
                 </Menu>
               </Group>
+              <Text
+                size='xs'
+                c='dimmed'
+                truncate='end'
+              >
+                {displayHost(bookmark.link)}
+              </Text>
               {bookmarkStatus(bookmark) === 'removed' && (
                 <Badge
                   color='red'

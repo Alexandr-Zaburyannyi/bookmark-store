@@ -35,20 +35,46 @@ struct BookmarkDto {
     sources: Vec<BookmarkSourceDto>,
 }
 
-#[tauri::command]
-fn add_bookmark(name: String, link: String, description: String) -> Result<(), String> {
-    let conn = db::connect_to_db().map_err(|e| e.to_string())?;
-    let now = url_key::now_ms();
-    let key = url_key::url_key(&link);
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AddBookmarkResult {
+    id: i64,
+    name: String,
+    outcome: String,
+}
 
-    conn.execute(
-        "INSERT INTO bookmarks (name, link, description, url_key, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?5);",
-        params![name, link, description, key, now],
+#[tauri::command]
+fn add_bookmark(
+    name: String,
+    link: String,
+    description: String,
+    folder_id: Option<i64>,
+) -> Result<AddBookmarkResult, String> {
+    let link = link.trim();
+    if link.is_empty() {
+        return Err("Link is required".to_string());
+    }
+    let name = match name.trim() {
+        "" => link,
+        trimmed => trimmed,
+    };
+
+    let mut conn = db::connect_to_db().map_err(|e| e.to_string())?;
+    let (id, name, outcome) = db::add_or_restore_bookmark(
+        &mut conn,
+        name,
+        link,
+        description.trim(),
+        folder_id,
+        url_key::now_ms(),
     )
     .map_err(|e| e.to_string())?;
 
-    Ok(())
+    Ok(AddBookmarkResult {
+        id,
+        name,
+        outcome: outcome.as_str().to_string(),
+    })
 }
 
 #[tauri::command]
@@ -384,7 +410,6 @@ fn set_folder_targets(folder_id: i64, source_ids: Vec<i64>) -> Result<(), String
             continue;
         }
         if external_id.is_none() {
-            // Never pushed, so there is nothing to remove from the browser.
             tx.execute(
                 "DELETE FROM folder_targets WHERE id = ?1;",
                 params![target_id],
@@ -427,7 +452,6 @@ fn delete_folder(folder_id: i64) -> Result<(), String> {
         )
         .map_err(|e| e.to_string())?;
 
-    // A target that was never pushed has nothing to remove from the browser.
     conn.execute(
         "DELETE FROM folder_targets WHERE folder_id = ?1 AND external_id IS NULL;",
         params![folder_id],

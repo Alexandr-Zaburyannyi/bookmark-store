@@ -7,6 +7,51 @@ export const setBookmarks = async (setBookmarks) => {
   setBookmarks(bookmarks);
 };
 
+export const addBookmark = async ({ name, link, description, folderId }) => {
+  let result;
+  try {
+    result = await invoke('add_bookmark', {
+      name,
+      link,
+      description,
+      folderId,
+    });
+  } catch (error) {
+    notifications.show({
+      color: 'red',
+      title: 'Could not add bookmark',
+      message: String(error),
+    });
+    return null;
+  }
+
+  if (result.outcome === 'exists') {
+    return result;
+  }
+
+  const store = useBookmarkStore.getState();
+  await setBookmarks(store.setBookmarks);
+  await loadFolders();
+
+  const current = useBookmarkStore.getState();
+  if (current.statusFilter === 'synced' || current.statusFilter === 'removed') {
+    current.setStatusFilter('all');
+  }
+
+  const message =
+    result.outcome === 'restored'
+      ? `Restored “${result.name}”`
+      : `Added to ${
+          folderId == null
+            ? 'Unfiled'
+            : (current.folders.find((folder) => folder.id === folderId)?.name ??
+              'a folder')
+        }`;
+  notifications.show({ color: 'green', message });
+
+  return result;
+};
+
 export const loadFolders = async () => {
   const folders = await invoke('list_folders');
   const store = useBookmarkStore.getState();
